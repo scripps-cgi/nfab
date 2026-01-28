@@ -14,3 +14,9 @@ When uncertain:
 If rules conflict:
 
 - Ask before proceeding
+
+Scope Rules:
+
+- `.github/skills` apply ONLY to application code
+- `.story` applies ONLY to narrative generation
+- Never mix skill sets unless explicitly instructed
