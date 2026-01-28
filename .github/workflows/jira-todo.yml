@@ -20,14 +20,26 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           mkdir -p .story/backlog/todo
 
-          jql='project=SCRUM AND status="To Do" ORDER BY created ASC'
+          jql='project = SCRUM AND status = "To Do" ORDER BY created ASC'
+          echo "Using JQL: $jql"
 
-          curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
+          response=$(curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" \
             -G --data-urlencode "jql=$jql" \
             --data-urlencode "fields=summary,description" \
-            "$JIRA_BASE_URL/rest/api/3/search" > jira_issues.json
+            --data-urlencode "maxResults=100" \
+            "$JIRA_BASE_URL/rest/api/3/search")
 
-          cat jira_issues.json | jq -r '.issues[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
+          echo "Raw Jira response:"
+          echo "$response"
+
+          # Bail out early if Jira didn’t return an 'issues' array
+          echo "$response" | jq -e '.issues' >/dev/null 2>&1 || {
+            echo "Jira response has no .issues field (likely JQL or permission error)."
+            exit 1
+          }
+
+          echo "$response" \
+          | jq -r '.issues // [] | .[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
           | while IFS=$'\t' read -r key summary description; do
               safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
               file=".story/backlog/todo/${key}-${safe_summary}.md"
@@ -37,8 +49,6 @@ jobs:
                 echo "$description"
               } > "$file"
             done
-
-          cat jira_issues.json
 
       - name: Commit and push changes
         env:
