@@ -1,0 +1,15 @@
+name: Test Jira connection
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-jira:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Jira for SCRUM-1
+        run: |
+          curl -i \
+            -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -H "Accept: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/SCRUM-1"
