@@ -1,7 +1,7 @@
 name: Sync Jira To Do tickets
 
 on:
-  workflow_dispatch:    # run manually; add schedule if you like
+  workflow_dispatch: # run manually; add schedule if you like
 
 jobs:
   sync-todo:
@@ -62,13 +62,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if git diff --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
+          # if git diff --quiet; then
+          #   echo "No changes to commit"
+          #   exit 0
+          # fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .story/backlog/todo
-          git commit -m "Sync Jira To Do tickets"
-          git push
+          git status
+          # git commit -m "Sync Jira To Do tickets"
+          # git push
