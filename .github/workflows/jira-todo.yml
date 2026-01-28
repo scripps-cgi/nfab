@@ -23,18 +23,25 @@ jobs:
           jql='project = SCRUM AND status = "To Do" ORDER BY created ASC'
           echo "Using JQL: $jql"
 
+          # Build POST body for the new /search/jql API
+          body=$(jq -n --arg jql "$jql" '
+            {
+              jql: $jql,
+              fields: ["summary", "description"],
+              maxResults: 100
+            }')
+
           response=$(curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-            -G --data-urlencode "jql=$jql" \
-            --data-urlencode "fields=summary,description" \
-            --data-urlencode "maxResults=100" \
-            "$JIRA_BASE_URL/rest/api/3/search")
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data "$body" \
+            "$JIRA_BASE_URL/rest/api/3/search/jql")
 
           echo "Raw Jira response:"
           echo "$response"
 
-          # Bail out early if Jira didn’t return an 'issues' array
           echo "$response" | jq -e '.issues' >/dev/null 2>&1 || {
-            echo "Jira response has no .issues field (likely JQL or permission error)."
+            echo "Jira response has no .issues field."
             exit 1
           }
 
