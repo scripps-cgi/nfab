@@ -3,6 +3,9 @@ name: Sync Jira To Do tickets
 on:
   workflow_dispatch: # run manually; add schedule if you like
 
+permissions:
+  contents: write # to push changes
+
 jobs:
   sync-todo:
     runs-on: ubuntu-latest
