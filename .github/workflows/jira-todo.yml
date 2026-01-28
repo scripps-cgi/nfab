@@ -46,16 +46,17 @@ jobs:
           }
 
           echo "$response" \
-          | jq -r '.issues // [] | .[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
-          | while IFS=$'\t' read -r key summary description; do
-              safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
-              file=".story/backlog/todo/${key}-${safe_summary}.md"
-              {
-                echo "# $key - $summary"
-                echo
-                echo "$description"
-              } > "$file"
-            done
+            | jq -r '.issues // [] | .[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
+            | while IFS=$'\t' read -r key summary description; do
+                safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
+                file=".story/backlog/todo/${key}-${safe_summary}.md"
+                {
+                  echo "# $key - $summary"
+                  echo
+                  echo "$description"
+                } > "$file"
+                echo "Wrote $file"
+              done
 
       - name: Commit and push changes
         env:
