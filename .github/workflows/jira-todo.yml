@@ -20,13 +20,16 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
+          sudo apt-get update
+          sudo apt-get install -y jq nodejs npm
+
+          npm install -g @atlaskit/adf-to-markdown
+
           mkdir -p .story/backlog/todo
 
           jql='project = SCRUM AND status = "To Do" ORDER BY created ASC'
           echo "Using JQL: $jql"
 
-          # Build POST body for the new /search/jql API
           body=$(jq -n --arg jql "$jql" '
             {
               jql: $jql,
@@ -40,26 +43,30 @@ jobs:
             --data "$body" \
             "$JIRA_BASE_URL/rest/api/3/search/jql")
 
-          echo "Raw Jira response:"
-          echo "$response"
+          echo "$response" | jq -e '.issues' >/dev/null
 
-          echo "$response" | jq -e '.issues' >/dev/null 2>&1 || {
-            echo "Jira response has no .issues field."
-            exit 1
-          }
+          echo "$response" | jq -c '.issues[]' | while read -r issue; do
+            key=$(echo "$issue" | jq -r '.key')
+            summary=$(echo "$issue" | jq -r '.fields.summary')
+            description_adf=$(echo "$issue" | jq -c '.fields.description // empty')
 
-          echo "$response" \
-            | jq -r '.issues // [] | .[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
-            | while IFS=$'\t' read -r key summary description; do
-                safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
-                file=".story/backlog/todo/${key}-${safe_summary}.md"
-                {
-                  echo "# $key - $summary"
-                  echo
-                  echo "$description"
-                } > "$file"
-                echo "Wrote $file"
-              done
+            safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
+            file=".story/backlog/todo/${key}-${safe_summary}.md"
+
+            if [ -n "$description_adf" ]; then
+              description_md=$(echo "$description_adf" | adf-to-md)
+            else
+              description_md="_No description provided._"
+            fi
+
+            {
+              echo "# $key - $summary"
+              echo
+              echo "$description_md"
+            } > "$file"
+
+            echo "Wrote $file"
+          done
 
       - name: Commit and push changes
         env:
