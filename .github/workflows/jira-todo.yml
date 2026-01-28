@@ -1,0 +1,54 @@
+name: Sync Jira To Do tickets
+
+on:
+  workflow_dispatch:    # run manually; add schedule if you like
+
+jobs:
+  sync-todo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Fetch Jira To Do issues and create files
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          mkdir -p .story/backlog/todo
+
+          jql='project=SCRUM AND status="To Do" ORDER BY created ASC'
+
+          curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
+            -G --data-urlencode "jql=$jql" \
+            --data-urlencode "fields=summary,description" \
+            "$JIRA_BASE_URL/rest/api/3/search" > jira_issues.json
+
+          cat jira_issues.json | jq -r '.issues[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
+          | while IFS=$'\t' read -r key summary description; do
+              safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
+              file=".story/backlog/todo/${key}-${safe_summary}.md"
+              {
+                echo "# $key - $summary"
+                echo
+                echo "$description"
+              } > "$file"
+            done
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .story/backlog/todo
+          git commit -m "Sync Jira To Do tickets"
+          git push
