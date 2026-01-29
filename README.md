@@ -58,3 +58,64 @@ pnpm preview
 ```
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+
+## Prompts
+
+This project uses AI agents to assist with development tasks.
+Agents must follow all rules in `.story/agent-instructions.md` and `.story/prompts
+
+To prepare tasks, select a prompt from the `.story/prompts` folder.
+Each prompt includes mandatory rules and a scope definition.
+Agents must confirm which skills apply before proceeding.
+
+To begin development tasks, select a prompt from the `.github/prompts` folder.
+Each prompt includes mandatory rules and a scope definition.
+Agents must confirm which skills apply before proceeding.
+
+example:
+
+Validate a story:
+
+```
+.story/prompts/validate/validate-story.md
+
+Target story:.story/backlog/todo/SCRUM-1-First_User_story.md
+```
+
+Plan a test strategy:
+
+```
+.story/prompts/plan/plan-test-strategy.md
+Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+```
+
+Plan a task breakdown:
+
+```
+.story/prompts/plan/plan-task-breakdown.md
+Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+```
+
+Generate test cases:
+
+```
+.story/prompts/generate/generate-test-cases.md
+Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+```
+
+## Implementation Tasks
+
+Generate code scaffold:
+
+```
+.github/prompts/generate/generate-code-scaffold.md
+Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+```
+
+Implement a single acceptance criterion:
+
+```
+.github/prompts/implement/implement-single-ac.md
+Target story: .story/backlog/in-progress/SCRUM-1-First_User_story.md
+Acceptance Criterion ID: AC-1
+```

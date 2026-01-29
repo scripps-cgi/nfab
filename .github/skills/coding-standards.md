@@ -54,6 +54,7 @@ Applies to all production code.
 - Ensure tests run quickly and reliably
 - Use scoped CSS in Vue components
 - Debug console output should be removed before committing code
+- Lint, format, and test code before committing
 
 ## Preferred Patterns
 
@@ -64,6 +65,7 @@ Applies to all production code.
 - Named constants over magic values
 - Prefer arrow functions
 - Console output should be avoided in favor of proper logging mechanisms
+- Whitespace should not be used to define code blocks (e.g., no significant indentation or new lines without braces)
 
 ## Prohibited Patterns
 
@@ -82,7 +84,7 @@ Applies to all production code.
 
 ```vue
 <script setup lang="ts">
-defineProps<{ userId: string }>();
+defineProps<{ userId: string }>()
 </script>
 ```
 
