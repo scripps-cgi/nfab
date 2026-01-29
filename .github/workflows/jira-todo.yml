@@ -102,6 +102,8 @@ jobs:
             fi
 
             echo "Wrote $todo_file"
+            echo "---- RAW: $todo_file"
+            cat "$todo_file"
           done
 
       - name: Convert Jira files to clean markdown
@@ -111,7 +113,12 @@ jobs:
           # Convert each file in-place (overwrites with clean markdown)
           for file in .story/backlog/todo/*.md; do
             if [ -f "$file" ]; then
-              npx tsx scripts/jira-to-markdown.ts "$file" || echo "Skipped non-Jira file: $file"
+              if npx tsx scripts/jira-to-markdown.ts "$file"; then
+                echo "---- FORMATTED: $file"
+                cat "$file"
+              else
+                echo "Skipped non-Jira file: $file"
+              fi
             fi
           done
 
