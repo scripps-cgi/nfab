@@ -87,6 +87,7 @@ jobs:
                 echo
                 echo "---"
                 echo "Jira: [$key]($issue_url)"
+                echo "Key: $key"
                 echo "Title: $summary"
                 echo "Type: $issuetype"
                 echo "Status (Jira): $status"
