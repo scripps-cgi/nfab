@@ -44,7 +44,7 @@ jobs:
             -X POST \
             -H "Content-Type: application/json" \
             --data "$body" \
-            "$JIRA_BASE_URL/rest/api/3/search" || true)
+            "$JIRA_BASE_URL/rest/api/3/search/jql" || true)
 
           # If Jira returned an error payload, surface it clearly and fail
           if echo "$response" | jq 'has("errorMessages") or has("errors")' >/dev/null 2>&1; then
@@ -138,7 +138,7 @@ jobs:
               -X POST \
               -H "Content-Type: application/json" \
               --data "$sub_body" \
-              "$JIRA_BASE_URL/rest/api/3/search" || true)
+              "$JIRA_BASE_URL/rest/api/3/search/jql" || true)
 
             if echo "$sub_response" | jq 'has("errorMessages") or has("errors")' >/dev/null 2>&1; then
               echo "Jira API error response when fetching subtasks:"
