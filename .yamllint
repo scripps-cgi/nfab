@@ -1,0 +1,9 @@
+extends: default
+
+rules:
+  line-length:
+    # Increase max line length to accommodate long CI scripts and URLs in workflow files
+    max: 200
+    level: warning
+  # Disable truthy checks for GitHub Actions workflow style (e.g. workflow_dispatch)
+  truthy: disable
