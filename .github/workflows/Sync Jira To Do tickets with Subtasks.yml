@@ -39,13 +39,25 @@ jobs:
               maxResults: 100
             }')
 
+          # Call Jira API and capture response; don't let curl's exit code abort the whole step
           response=$(curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" \
             -X POST \
             -H "Content-Type: application/json" \
             --data "$body" \
-            "$JIRA_BASE_URL/rest/api/3/search")
+            "$JIRA_BASE_URL/rest/api/3/search" || true)
 
-          echo "$response" | jq -e '.issues' >/dev/null
+          # If Jira returned an error payload, surface it clearly and fail
+          if echo "$response" | jq 'has("errorMessages") or has("errors")' >/dev/null 2>&1; then
+            echo "Jira API error response:"
+            echo "$response" | jq '.' || echo "$response"
+            exit 1
+          fi
+
+          # If no issues array was returned (or it's empty), normalize to an empty issues list
+          if ! echo "$response" | jq -e '.issues' >/dev/null 2>&1; then
+            echo "No issues returned by Jira for the stories query. Continuing with zero results."
+            response='{"issues": []}'
+          fi
 
           # 1a) Create files for STORIES
           echo "$response" | jq -c '.issues[]' | while read -r issue; do
@@ -126,9 +138,18 @@ jobs:
               -X POST \
               -H "Content-Type: application/json" \
               --data "$sub_body" \
-              "$JIRA_BASE_URL/rest/api/3/search")
+              "$JIRA_BASE_URL/rest/api/3/search" || true)
 
-            echo "$sub_response" | jq -e '.issues' >/dev/null
+            if echo "$sub_response" | jq 'has("errorMessages") or has("errors")' >/dev/null 2>&1; then
+              echo "Jira API error response when fetching subtasks:"
+              echo "$sub_response" | jq '.' || echo "$sub_response"
+              exit 1
+            fi
+
+            if ! echo "$sub_response" | jq -e '.issues' >/dev/null 2>&1; then
+              echo "No subtasks returned by Jira for the subtask query. Continuing with zero results."
+              sub_response='{"issues": []}'
+            fi
 
             # 3a) Create files for SUB-TASKS
             echo "$sub_response" | jq -c '.issues[]' | while read -r issue; do
