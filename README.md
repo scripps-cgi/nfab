@@ -103,6 +103,13 @@ Generate test cases:
 Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
 ```
 
+Post the dev approach to a comment on the story in Jira
+
+```
+.story/prompts/maintain/maintain-jira-plan.md
+Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+```
+
 ## Implementation Tasks
 
 Generate code scaffold:
