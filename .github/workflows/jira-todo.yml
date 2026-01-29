@@ -14,23 +14,26 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Fetch Jira To Do issues and create files
         env:
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
           mkdir -p .story/backlog/todo
 
           jql='project = SCRUM AND status = "To Do" ORDER BY created ASC'
           echo "Using JQL: $jql"
 
-          # Build POST body for the new /search/jql API
           body=$(jq -n --arg jql "$jql" '
             {
               jql: $jql,
-              fields: ["summary", "description"],
+              fields: ["summary", "description", "issuetype", "status", "customfield_10014", "priority", "reporter", "assignee", "labels", "created"],
               maxResults: 100
             }')
 
@@ -40,39 +43,98 @@ jobs:
             --data "$body" \
             "$JIRA_BASE_URL/rest/api/3/search/jql")
 
-          echo "Raw Jira response:"
-          echo "$response"
+          echo "$response" | jq -e '.issues' >/dev/null
 
-          echo "$response" | jq -e '.issues' >/dev/null 2>&1 || {
-            echo "Jira response has no .issues field."
-            exit 1
-          }
+          echo "$response" | jq -c '.issues[]' | while read -r issue; do
+            key=$(echo "$issue" | jq -r '.key')
+            summary=$(echo "$issue" | jq -r '.fields.summary')
+            description=$(echo "$issue" | jq -c '.fields.description // empty')
+            issue_url="${JIRA_BASE_URL}/browse/${key}"
+            issuetype=$(echo "$issue" | jq -r '.fields.issuetype.name')
+            status=$(echo "$issue" | jq -r '.fields.status.name')
+            epic=$(echo "$issue" | jq -r '.fields.customfield_10014 // "N/A"')
+            priority=$(echo "$issue" | jq -r '.fields.priority.name // "N/A"')
+            labels=$(echo "$issue" | jq -r '.fields.labels | join(", ") // "N/A"')
+            created=$(echo "$issue" | jq -r '.fields.created')
+            safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
+            file_base="${key}-${safe_summary}"
+            todo_file=".story/backlog/todo/${file_base}.md"
 
-          echo "$response" \
-            | jq -r '.issues // [] | .[] | "\(.key)\t\(.fields.summary)\t\(.fields.description // "")"' \
-            | while IFS=$'\t' read -r key summary description; do
-                safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
-                file=".story/backlog/todo/${key}-${safe_summary}.md"
-                {
-                  echo "# $key - $summary"
-                  echo
-                  echo "$description"
-                } > "$file"
-                echo "Wrote $file"
-              done
+            # Store metadata + raw Jira JSON for conversion
+            if [ -n "$description" ]; then
+              {
+                echo "# $key - $summary"
+                echo
+                echo "---"
+                echo "Jira: [$key]($issue_url)"
+                echo "Title: $summary"
+                echo "Type: $issuetype"
+                echo "Status (Jira): $status"
+                echo "Epic: $epic"
+                echo "Priority: $priority"
+                echo "Labels: $labels"
+                echo "Created: $created"
+                echo "Imported: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+                echo "---"
+                echo
+                echo '```json'
+                echo "$description"
+                echo '```'
+              } > "$todo_file"
+            else
+              {
+                echo "# $key - $summary"
+                echo
+                echo "---"
+                echo "Jira: [$key]($issue_url)"
+                echo "Title: $summary"
+                echo "Type: $issuetype"
+                echo "Status (Jira): $status"
+                echo "Epic: $epic"
+                echo "Priority: $priority"
+                echo "Labels: $labels"
+                echo "Created: $created"
+                echo "Imported: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+                echo "---"
+                echo
+                echo "_No description provided._"
+              } > "$todo_file"
+            fi
+
+            echo "Wrote $todo_file"
+            echo "---- RAW: $todo_file"
+            cat "$todo_file"
+          done
+
+      - name: Convert Jira files to clean markdown
+        run: |
+          npm install -g tsx
+
+          # Convert each file in-place (overwrites with clean markdown)
+          for file in .story/backlog/todo/*.md; do
+            if [ -f "$file" ]; then
+              if npx tsx scripts/jira-to-markdown.ts "$file"; then
+                echo "---- FORMATTED: $file"
+                cat "$file"
+              else
+                echo "Skipped non-Jira file: $file"
+              fi
+            fi
+          done
 
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # if git diff --quiet; then
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .story/backlog/
+          git status
+
+          # if git diff --cached --quiet; then
           #   echo "No changes to commit"
           #   exit 0
           # fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .story/backlog/todo
-          git status
           git commit -m "chore: Sync Jira To Do tickets"
           git push
