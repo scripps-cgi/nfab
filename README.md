@@ -79,35 +79,35 @@ Validate a story:
 ```
 .story/prompts/validate/validate-story.md
 
-Target story:.story/backlog/todo/SCRUM-1-First_User_story.md
+Target story:.story/backlog/todo/SCRUM-1-Feature:_Add_task.md
 ```
 
 Plan a test strategy:
 
 ```
 .story/prompts/plan/plan-test-strategy.md
-Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+Target story: .story/backlog/todo/SCRUM-1-Feature:_Add_task.md
 ```
 
 Plan a task breakdown:
 
 ```
 .story/prompts/plan/plan-task-breakdown.md
-Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+Target story: .story/backlog/todo/SCRUM-1-Feature:_Add_task.md
 ```
 
 Generate test cases:
 
 ```
 .story/prompts/generate/generate-test-cases.md
-Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+Target story: .story/backlog/todo/SCRUM-1-Feature:_Add_task.md
 ```
 
 Post the dev approach to a comment on the story in Jira
 
 ```
 .story/prompts/maintain/maintain-jira-plan.md
-Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+Target story: .story/backlog/todo/SCRUM-1-Feature:_Add_task.md
 ```
 
 ## Implementation Tasks
@@ -116,7 +116,7 @@ Generate code scaffold:
 
 ```
 .github/prompts/generate/generate-code-scaffold.md
-Target story: .story/backlog/todo/SCRUM-1-First_User_story.md
+Target story: .story/backlog/todo/SCRUM-1-Feature:_Add_task.md
 ```
 
 Implement a single acceptance criterion:
