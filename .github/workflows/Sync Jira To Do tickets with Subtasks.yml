@@ -1,10 +1,11 @@
+---
 name: Sync Jira To Do tickets
 
 on:
-  workflow_dispatch: # run manually; add schedule if you like
+  workflow_dispatch: {}  # run manually; add schedule if you like
 
 permissions:
-  contents: write # to push changes
+  contents: write  # to push changes
 
 jobs:
   sync-todo:
@@ -42,7 +43,7 @@ jobs:
             -X POST \
             -H "Content-Type: application/json" \
             --data "$body" \
-            "$JIRA_BASE_URL/rest/api/3/search/jql")
+            "$JIRA_BASE_URL/rest/api/3/search")
 
           echo "$response" | jq -e '.issues' >/dev/null
 
@@ -78,9 +79,9 @@ jobs:
                 echo "Imported: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
                 echo "---"
                 echo
-                echo '```json'
+                echo '\'\'\'json'
                 echo "$description"
-                echo '```'
+                echo '\'\'\''
               } > "$todo_file"
             else
               {
@@ -125,7 +126,7 @@ jobs:
               -X POST \
               -H "Content-Type: application/json" \
               --data "$sub_body" \
-              "$JIRA_BASE_URL/rest/api/3/search/jql")
+              "$JIRA_BASE_URL/rest/api/3/search")
 
             echo "$sub_response" | jq -e '.issues' >/dev/null
 
@@ -165,9 +166,9 @@ jobs:
                   echo "Imported: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
                   echo "---"
                   echo
-                  echo '```json'
+                  echo '\'\'\'json'
                   echo "$description"
-                  echo '```'
+                  echo '\'\'\''
                 } > "$todo_file"
               else
                 {
@@ -221,10 +222,10 @@ jobs:
           git add .story/backlog/
           git status
 
-          # if git diff --cached --quiet; then
-          #   echo "No changes to commit"
-          #   exit 0
-          # fi
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
 
           git commit -m "chore: Sync Jira To Do tickets"
           git push
