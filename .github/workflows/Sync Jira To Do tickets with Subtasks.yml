@@ -47,7 +47,8 @@ jobs:
             "$JIRA_BASE_URL/rest/api/3/search/jql" || true)
 
           # If Jira returned an error payload, surface it clearly and fail
-          if echo "$response" | jq -e 'has("errorMessages") or has("errors")' >/dev/null 2>&1; then
+          # Detect common Jira error payload keys without depending on jq expression quoting
+          if echo "$response" | grep -q '"errorMessages"' || echo "$response" | grep -q '"errors"'; then
             echo "Jira API error response:"
             echo "$response" | jq '.' || echo "$response"
             exit 1
@@ -140,7 +141,7 @@ jobs:
               --data "$sub_body" \
               "$JIRA_BASE_URL/rest/api/3/search/jql" || true)
 
-            if echo "$sub_response" | jq -e 'has("errorMessages") or has("errors")' >/dev/null 2>&1; then
+            if echo "$sub_response" | grep -q '"errorMessages"' || echo "$sub_response" | grep -q '"errors"'; then
               echo "Jira API error response when fetching subtasks:"
               echo "$sub_response" | jq '.' || echo "$sub_response"
               exit 1
