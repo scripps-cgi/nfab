@@ -1,24 +1,26 @@
-# Prompt: Post Story Comment to Jira
+# Prompt: Attach Story Documents to Jira
 
 ## Purpose
 
-Post the contents of a local story Markdown file as a comment
-to its associated Jira ticket by invoking a local script.
+Attach story planning documents to a Jira ticket by invoking a local script.
 
-This prompt delegates all Jira interaction to an approved local script found in `./scripts/post-story-comment.ts.
+This prompt delegates all Jira interaction to an approved local script found in `./scripts/attach-story-documents.ts.
 
 ---
 
 ## Inputs
 
-- One local story file (Markdown) from `.story/backlog/todo` or `.story/backlog/in-progress/`
+- One imported Jira `story.md` file from `.backlog/` or a ticket ID referring to and existing story.md file in `.backlog`
 
 ---
 
 ## Files to Read
 
 - The selected story file
-- `.story/agent-instructions.md`
+- The associated test-plan.md file from the same folder
+- The associated task-breakdown.md file from the same folder
+- The associated readiness.md file from the same folder (if it exists)
+- `.github/agent-instructions.md`
 
 ---
 
@@ -68,8 +70,8 @@ If Test Strategy, Test Cases and Task Breakdown sections are missing:
 
 ## Required Local Script
 
-The following script MUST be used for posting to Jira:
-`./scripts/post-story-comment.ts <STORY_FILE_PATH>`
+The following script MUST be used for attaching documents to Jira:
+`./scripts/attach-story-documents.ts <STORY_DIRECTORY_PATH>`
 
 ---
 

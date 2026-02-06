@@ -2,7 +2,7 @@
 
 ## Inputs
 
-- One story file from `.story/backlog/todo/` or `.story/backlog/in-progress/`
+- One imported Jira `story.md` file from `.backlog/` or a ticket ID referring to and existing story.md file in `.backlog`
 
 ## Files to Read
 
@@ -12,10 +12,6 @@
 ## Task
 
 Scaffold the minimal code structure required to implement this story.
-
-## Before starting
-
-- Move the story file to `.story/backlog/in-progress/` if it is not already there
 
 ## Rules
 
@@ -34,6 +30,15 @@ Scaffold the minimal code structure required to implement this story.
 - Completing the full implementation
 - Modifying story files
 - Changing acceptance criteria
+
+## After Scaffolding
+
+- Update `scaffolding.md` status to "Complete"
+- List created files and their purpose in `scaffolding.md`
+- Do not write tests or implement logic beyond TODOs
+- Do not change story scope or requirements
+- Do not modify Jira-owned sections
+- Do not suggest changes to requirements or scope
 
 ## Stop Condition
 

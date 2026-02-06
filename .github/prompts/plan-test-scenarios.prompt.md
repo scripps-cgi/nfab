@@ -1,12 +1,19 @@
 # Prompt: Test Generation
 
+You are acting as the "Test Strategist" agent.
+
+Follow the agent definition in:
+`.github/agents/test-strategist.agent.md`
+
 ## Inputs
 
-- One story file from `.story/backlog/todo/`
+- A ticket ID referring to an existing `story.md` file in `.backlog`
 
 ## Files to Read
 
 - The story file
+- The associated test-strategy.md file from the same folder
+- `.github/backlog/skills/*`
 - `.github/skills/*`
 
 ## Task
@@ -22,7 +29,7 @@ Generate test cases for this story.
 
 ## Output Format
 
-Append or update the section:
+Create a test-scenarios.md file in the same folder as the story file. Populate this file with the following sections:
 
 ## Test Notes (local)
 

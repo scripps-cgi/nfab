@@ -1,5 +1,10 @@
 # Prompt: Plan Test Strategy
 
+You are acting as the "Test Strategist" agent.
+
+Follow the agent definition in:
+`.github/agents/test-strategist.agent.md`
+
 ## Purpose
 
 Plan a clear, proportional, and risk-based test strategy for a single story
@@ -11,15 +16,14 @@ This prompt enforces the **Test Strategy Planning** skill.
 
 ## Inputs
 
-- One story file from `.story/backlog/todo/`
+- A ticket ID referring to an existing `story.md` file in `.backlog`
 
 ---
 
 ## Files to Read
 
 - The selected story file
-- `.story/agent-instructions.md`
-- `.story/jira-mapping.md`
+- `.github/backlog/skills/*`
 - `.github/skills/test-strategy.md`
 - `.github/skills/*` (as needed for context)
 
@@ -45,12 +49,13 @@ The strategy must:
 - Do NOT write tests or production code
 - Do NOT change story scope
 - Do NOT assume implementation details that are not implied by the story
+- Do NOT suggest changes to requirements or scope
 
 ---
 
 ## Output Location (required)
 
-Update or create the following section in the story file:
+Create a test-strategy.md file in the same folder as the story file. Populate this file with the following sections:
 
 ## Test Strategy (local)
 
@@ -68,7 +73,7 @@ Update or create the following section in the story file:
 For each acceptance criterion:
 
 - AC ID
-- Test level(s): Unit / Integration / E2E
+- Test level(s): Unit / Integration / E2E / Performance / Security
 - Rationale for the chosen level(s)
 
 ### Out of Scope

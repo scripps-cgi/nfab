@@ -2,7 +2,7 @@
 
 ## Inputs
 
-- One story file from `.story/backlog/todo/` or `.story/backlog/in-progress/`
+- One imported Jira `story.md` file from `.backlog/` or a ticket ID referring to and existing story.md file in `.backlog`
 - One acceptance criterion ID (e.g. AC-2)
 
 ## Files to Read
@@ -16,7 +16,6 @@ Implement the specified acceptance criterion only.
 
 ## Rules
 
-- Move the story file to `.story/backlog/in-progress/` if it is not already there
 - Implement only the selected AC
 - Add or update tests for this AC
 - Do not modify unrelated code

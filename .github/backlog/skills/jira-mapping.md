@@ -55,7 +55,7 @@ These sections may be added or edited locally without affecting Jira.
 - Add local notes only in explicitly marked sections
 - Always include all mapped fields in the header
 - Use exact section titles as specified in the body mapping
-- Maintain original formatting of Jira content (lists, code blocks, etc.)
+- Maintain original formatting of Jira content using markdown (lists, code blocks, etc.)
 - Ensure proper Markdown syntax for all sections
 - Validate that all mandatory fields are present in Jira before import
 - Do not include reporter or assignee information in the Markdown file

@@ -29,6 +29,8 @@ This skill does NOT apply to:
 - Target **Node.js (LTS)** as the runtime
 - Use ES modules (`type: "module"`) unless there is a strong reason not to
 - Enable `strict` TypeScript settings
+- Do not use `any` type; prefer explicit types and interfaces
+- Include JSDoc comments for all functions and complex logic
 - Scripts must be runnable via `node` or `tsx`, not browser environments
 - Scripts must be deterministic and side-effect-aware
 - Use `import` statements instead of `require`
@@ -37,6 +39,7 @@ This skill does NOT apply to:
 - Include type definitions for all functions and objects
 - Use `async`/`await` for asynchronous operations
 - Use built-in Node.js modules where possible (e.g., `fs/promises`, `path`, `child_process`)
+- Import node built-in modules explicitly from 'node:module-name' (e.g., `import fs from 'node:fs/promises'`)
 - Use third-party libraries judiciously; prefer well-maintained and widely-used packages
 - Write modular code; avoid large monolithic scripts
 - Include comments and documentation for complex logic
@@ -51,6 +54,19 @@ This skill does NOT apply to:
 - Scripts should clean up any temporary files or resources they create
 - Scripts should not interfere with application runtime code or configurations
 - Scripts should be kept in `scripts` directory or appropriate tooling directories
+- Use consistent naming conventions for script files (e.g., `kebab-case.ts`)
+- Ensure scripts are idempotent where applicable
+- Include logging for important actions and errors
+- Validate inputs and outputs rigorously
+- Use environment variables for sensitive information (e.g., API keys, tokens)
+- Avoid using global variables; prefer passing parameters explicitly
+- Scripts should exit with appropriate status codes (0 for success, non-zero for errors)
+- Ensure scripts are compatible with the project's Node.js version
+- Regularly review and refactor scripts to maintain quality and relevance
+- Use dependency management tools (e.g., npm, yarn) for any third-party packages
+- Document any assumptions or limitations of the scripts in comments or documentation
+- Scripts should be designed for maintainability and ease of understanding by other developers
+- Remove all unused code, dependencies, and imports
 
 ---
 

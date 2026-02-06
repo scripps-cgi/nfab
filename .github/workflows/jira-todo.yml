@@ -25,7 +25,7 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
         run: |
-          mkdir -p .story/backlog/todo
+          mkdir -p .backlog/todo
 
           jql='project = SCRUM AND status = "To Do" ORDER BY created ASC'
           echo "Using JQL: $jql"
@@ -58,7 +58,7 @@ jobs:
             created=$(echo "$issue" | jq -r '.fields.created')
             safe_summary=$(echo "$summary" | tr ' /' '__' | cut -c1-40)
             file_base="${key}-${safe_summary}"
-            todo_file=".story/backlog/todo/${file_base}.md"
+            todo_file=".backlog/todo/${file_base}.md"
 
             # Store metadata + raw Jira JSON for conversion
             if [ -n "$description" ]; then
@@ -112,7 +112,7 @@ jobs:
           npm install -g tsx
 
           # Convert each file in-place (overwrites with clean markdown)
-          for file in .story/backlog/todo/*.md; do
+          for file in .backlog/todo/*.md; do
             if [ -f "$file" ]; then
               if npx tsx scripts/jira-to-markdown.ts "$file"; then
                 echo "---- FORMATTED: $file"
@@ -129,7 +129,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .story/backlog/
+          git add .backlog/
           git status
 
           # if git diff --cached --quiet; then
