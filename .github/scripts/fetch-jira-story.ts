@@ -2,32 +2,34 @@
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import * as dotenv from 'dotenv'
+import { logger } from './lib/logger.ts'
 
 // Load environment variables
 dotenv.config()
-
-const JIRA_EMAIL = process.env.JIRA_EMAIL
-const JIRA_TOKEN = process.env.JIRA_TOKEN
-const JIRA_BASE_URL = process.env.JIRA_BASE_URL
+const { JIRA_EMAIL, JIRA_TOKEN, JIRA_BASE_URL } = process.env
 
 if (!JIRA_EMAIL || !JIRA_TOKEN || !JIRA_BASE_URL) {
-  console.error('Missing environment variables: JIRA_EMAIL, JIRA_TOKEN, JIRA_BASE_URL')
+  logger.error('Missing environment variables: JIRA_EMAIL, JIRA_TOKEN, JIRA_BASE_URL')
   process.exit(1)
 }
+
+const jiraEmail = JIRA_EMAIL
+const jiraToken = JIRA_TOKEN
+const jiraBaseUrl = JIRA_BASE_URL
 
 const ticketId = process.argv[2]?.toUpperCase().trim()
 const VERBOSE = process.env.VERBOSE === 'true'
 
 if (!ticketId) {
-  console.error('Usage: tsx fetch-jira-story.ts <JIRA_TICKET_ID>')
-  console.error('\nExample: tsx fetch-jira-story.ts SCRUM-1')
+  logger.error('Usage: tsx fetch-jira-story.ts <JIRA_TICKET_ID>')
+  logger.info('Example: tsx fetch-jira-story.ts SCRUM-1')
   process.exit(1)
 }
 
 // Validate ticket ID format (PROJECT-NUMBER)
 if (!/^[A-Z]+-\d+$/.test(ticketId)) {
-  console.error(`❌ Invalid ticket ID format: ${ticketId}`)
-  console.error('Expected format: PROJECT-NUMBER (e.g., SCRUM-1, NFAB-42)')
+  logger.error(`Invalid ticket ID format: ${ticketId}`)
+  logger.info('Expected format: PROJECT-NUMBER (e.g., SCRUM-1, NFAB-42)')
   process.exit(1)
 }
 
@@ -35,16 +37,7 @@ interface JiraResponse {
   key: string
   fields: {
     summary: string
-    description?: {
-      content: Array<{
-        type: string
-        content: Array<{
-          type: string
-          text?: string
-          content?: Array<{ text?: string }>
-        }>
-      }>
-    }
+    description?: AdfContent
     issuetype: { name: string }
     status: { name: string }
     customfield_10014?: { name: string } | null
@@ -71,8 +64,14 @@ interface JiraResponse {
     } | null
     issuelinks?: Array<{
       type: { name: string }
-      inwardIssue?: { key: string; fields: { summary: string } }
-      outwardIssue?: { key: string; fields: { summary: string } }
+      inwardIssue?: {
+        key: string
+        fields: { summary: string }
+      }
+      outwardIssue?: {
+        key: string
+        fields: { summary: string }
+      }
     }>
     attachment?: Array<{
       id: string
@@ -81,7 +80,10 @@ interface JiraResponse {
       mimeType: string
     }>
     updated: string
-    project: { key: string; name: string }
+    project: {
+      key: string
+      name: string
+    }
     duedate?: string | null
     [key: string]: unknown
   }
@@ -120,56 +122,76 @@ interface AdfContent {
  * breaks, mentions, emojis, images, and nested content.
  *
  * @param node - ADF node to process
- * @param depth - Current recursion depth (for debugging)
  * @returns Formatted markdown text
  */
-function extractNodeText(node: AdfNode | undefined, depth: number = 0): string {
+function extractNodeText(node: AdfNode | undefined): string {
   if (!node) return ''
 
-  // Handle text nodes
-  if (node.type === 'text') {
-    let text = node.text || ''
-    // Apply text formatting if present
-    if (node.marks) {
-      for (const mark of node.marks) {
-        if (mark.type === 'strong') text = `**${text}**`
-        if (mark.type === 'em') text = `*${text}*`
-        if (mark.type === 'code') text = `\`${text}\``
-        if (mark.type === 'strike') text = `~~${text}~~`
-        if (mark.type === 'link') {
-          const href = mark.attrs?.href || ''
-          text = `[${text}](${href})`
-        }
-      }
+  switch (node.type) {
+    case 'text':
+      return formatTextNode(node)
+    case 'softbreak':
+      return ' '
+    case 'hardbreak':
+      return '\n'
+    case 'mention':
+      return formatMentionNode(node)
+    case 'emoji':
+      return formatEmojiNode(node)
+    case 'image':
+      return formatImageNode(node)
+    default:
+      return node.content?.map(extractNodeText).join('') ?? ''
+  }
+}
+
+function formatTextNode(node: AdfNode): string {
+  const text = node.text ?? ''
+  return applyTextMarks(text, node.marks)
+}
+
+function applyTextMarks(text: string, marks: AdfMark[] | undefined): string {
+  if (!marks || marks.length === 0) return text
+
+  let result = text
+  for (const mark of marks) {
+    result = applyTextMark(result, mark)
+  }
+  return result
+}
+
+function applyTextMark(text: string, mark: AdfMark): string {
+  switch (mark.type) {
+    case 'strong':
+      return `**${text}**`
+    case 'em':
+      return `*${text}*`
+    case 'code':
+      return `\`${text}\``
+    case 'strike':
+      return `~~${text}~~`
+    case 'link': {
+      const href = typeof mark.attrs?.href === 'string' ? mark.attrs.href : ''
+      return `[${text}](${href})`
     }
-    return text
+    default:
+      return text
   }
+}
 
-  // Handle breaks
-  if (node.type === 'softbreak') return ' '
-  if (node.type === 'hardbreak') return '\n'
+function formatMentionNode(node: AdfNode): string {
+  const id = node.attrs?.id
+  const text = node.attrs?.text
+  return `@${String(id ?? text ?? '')}`
+}
 
-  // Handle mentions
-  if (node.type === 'mention') {
-    return `@${node.attrs?.id || node.attrs?.text || ''}`
-  }
+function formatEmojiNode(node: AdfNode): string {
+  return typeof node.attrs?.shortName === 'string' ? node.attrs.shortName : ''
+}
 
-  // Handle emojis
-  if (node.type === 'emoji') {
-    return node.attrs?.shortName || ''
-  }
-
-  // Handle inline images
-  if (node.type === 'image') {
-    return `![image](${node.attrs?.src || ''})`
-  }
-
-  // Handle nested content
-  if (node.content && Array.isArray(node.content)) {
-    return node.content.map((child: AdfNode) => extractNodeText(child, depth + 1)).join('')
-  }
-
-  return ''
+function formatImageNode(node: AdfNode): string {
+  const src = typeof node.attrs?.src === 'string' ? node.attrs.src : ''
+  return `![image](${src})`
 }
 
 /**
@@ -182,86 +204,99 @@ function extractNodeText(node: AdfNode | undefined, depth: number = 0): string {
  * @returns Markdown-formatted text
  */
 function adfToText(adfDoc: AdfContent | undefined): string {
-  if (!adfDoc || !adfDoc.content) return ''
+  if (!adfDoc?.content) return ''
 
-  const lines: string[] = []
+  const lines = adfDoc.content.flatMap(block => formatAdfBlock(block))
+  return compactBlankLines(lines).join('\n')
+}
 
-  for (const block of adfDoc.content) {
-    if (block.type === 'paragraph' && block.content) {
-      const text = block.content.map((node: AdfNode) => extractNodeText(node)).join('')
-      if (text.trim()) {
-        lines.push(text)
-      }
-    } else if (block.type === 'heading' && block.content) {
-      const level = (block.attrs?.level as number) || 1
-      const headingText = block.content.map((node: AdfNode) => extractNodeText(node)).join('')
-      if (headingText.trim()) {
-        lines.push('#'.repeat(level) + ' ' + headingText)
-      }
-    } else if (block.type === 'bulletList' && block.content) {
-      for (const item of block.content) {
-        if (item.content) {
-          const text = item.content.map((node: AdfNode) => extractNodeText(node)).join('')
-          if (text.trim()) {
-            lines.push(`- ${text}`)
-          }
-        }
-      }
-    } else if (block.type === 'orderedList' && block.content) {
-      let index = 1
-      for (const item of block.content) {
-        if (item.content) {
-          const text = item.content.map((node: AdfNode) => extractNodeText(node)).join('')
-          if (text.trim()) {
-            lines.push(`${index}. ${text}`)
-            index++
-          }
-        }
-      }
-    } else if (block.type === 'blockquote' && block.content) {
-      for (const node of block.content) {
-        const text = extractNodeText(node)
-        if (text.trim()) {
-          lines.push(`> ${text}`)
-        }
-      }
-    } else if (block.type === 'codeBlock' && block.content) {
-      const language = (block.attrs?.language as string) || ''
-      const code = block.content.map((node: AdfNode) => extractNodeText(node)).join('')
-      if (code.trim()) {
-        lines.push('```' + language)
-        lines.push(code.trim())
-        lines.push('```')
-      }
-    } else if (block.type === 'rule') {
-      lines.push('---')
-    } else if (block.type === 'table' && block.content) {
-      // Handle table rows
-      for (const row of block.content) {
-        if (row.type === 'tableRow' && row.content) {
-          const cells = row.content
-            .map((cell: AdfNode) => {
-              if (cell.content) {
-                return cell.content.map((node: AdfNode) => extractNodeText(node)).join('')
-              }
-              return ''
-            })
-            .join(' | ')
-          lines.push(`| ${cells} |`)
-        }
-      }
-    }
-  }
-
-  // Clean up multiple consecutive blank lines
+function compactBlankLines(lines: string[]): string[] {
   const cleaned: string[] = []
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() || i === 0 || lines[i - 1].trim()) {
-      cleaned.push(lines[i])
+  for (const current of lines) {
+    const previous = cleaned.at(-1) ?? ''
+    if (current.trim() || cleaned.length === 0 || previous.trim()) {
+      cleaned.push(current)
     }
   }
+  return cleaned
+}
 
-  return cleaned.join('\n')
+function formatAdfBlock(block: AdfNode): string[] {
+  if (block.type === 'rule') return ['---']
+  if (!block.content) return []
+
+  switch (block.type) {
+    case 'paragraph':
+      return formatParagraph(block)
+    case 'heading':
+      return formatHeading(block)
+    case 'bulletList':
+      return formatBulletList(block)
+    case 'orderedList':
+      return formatOrderedList(block)
+    case 'blockquote':
+      return formatBlockquote(block)
+    case 'codeBlock':
+      return formatCodeBlock(block)
+    case 'table':
+      return formatTable(block)
+    default:
+      return []
+  }
+}
+
+function formatParagraph(block: AdfNode): string[] {
+  const text = block.content?.map(extractNodeText).join('') ?? ''
+  return text.trim() ? [text] : []
+}
+
+function formatHeading(block: AdfNode): string[] {
+  const level = (block.attrs?.level as number) || 1
+  const text = block.content?.map(extractNodeText).join('') ?? ''
+  return text.trim() ? ['#'.repeat(level) + ' ' + text] : []
+}
+
+function formatBulletList(block: AdfNode): string[] {
+  return (block.content ?? [])
+    .map(item => {
+      const text = item.content?.map(extractNodeText).join('') ?? ''
+      return text.trim() ? `- ${text}` : ''
+    })
+    .filter(Boolean)
+}
+
+function formatOrderedList(block: AdfNode): string[] {
+  const lines: string[] = []
+  let index = 1
+  for (const item of block.content ?? []) {
+    const text = item.content?.map(extractNodeText).join('') ?? ''
+    if (!text.trim()) continue
+    lines.push(`${index}. ${text}`)
+    index++
+  }
+  return lines
+}
+
+function formatBlockquote(block: AdfNode): string[] {
+  return (block.content ?? [])
+    .map(extractNodeText)
+    .filter(text => text.trim())
+    .map(text => `> ${text}`)
+}
+
+function formatCodeBlock(block: AdfNode): string[] {
+  const language = (block.attrs?.language as string) || ''
+  const code = block.content?.map(extractNodeText).join('') ?? ''
+  return code.trim() ? ['```' + language, code.trim(), '```'] : []
+}
+
+function formatTable(block: AdfNode): string[] {
+  return (block.content ?? [])
+    .filter(row => row.type === 'tableRow' && Boolean(row.content))
+    .map(row => {
+      const cells = row.content?.map(cell => cell.content?.map(extractNodeText).join('') ?? '').join(' | ') ?? ''
+      return `| ${cells} |`
+    })
 }
 
 /**
@@ -273,7 +308,134 @@ function adfToText(adfDoc: AdfContent | undefined): string {
  * @returns Safe summary for use in file paths
  */
 function createSafeSummary(summary: string): string {
-  return summary.replace(/[/\s]+/g, '_').substring(0, 40)
+  const slug = summary
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, '-')
+    .replaceAll(/^-+/g, '')
+    .replaceAll(/-+$/g, '')
+    .substring(0, 40)
+
+  return slug || 'story'
+}
+
+function buildHeaderLines(input: {
+  key: string
+  summary: string
+  jiraBaseUrl: string
+  issueType: string
+  status: string
+  project: string
+  epic: string
+  priority: string
+  labels: string
+  created: string
+  updated: string
+  duedate?: string | null
+  importedAt: string
+}): string[] {
+  return [
+    `# ${input.key} - ${input.summary}`,
+    '',
+    '---',
+    `Jira: [${input.key}](${input.jiraBaseUrl}/browse/${input.key})`,
+    `Title: ${input.summary}`,
+    `Type: ${input.issueType}`,
+    `Status (Jira): ${input.status}`,
+    `Project: ${input.project}`,
+    `Epic: ${input.epic}`,
+    `Priority: ${input.priority}`,
+    `Labels: ${input.labels}`,
+    `Created: ${input.created}`,
+    `Updated: ${input.updated}`,
+    ...(input.duedate ? [`Due Date: ${input.duedate}`] : []),
+    `Imported: ${input.importedAt}`,
+    '---',
+    ''
+  ]
+}
+
+function buildUserStoryLines(description: AdfContent | undefined): string[] {
+  if (!description) return []
+  const descriptionText = adfToText(description).trim()
+  return descriptionText ? ['## User Story', '', descriptionText, ''] : []
+}
+
+interface ReferenceInput {
+  links: JiraResponse['fields']['issuelinks']
+  jiraBaseUrl: string
+}
+
+function buildReferenceLines(input: ReferenceInput): string[] {
+  const links = input.links ?? []
+  const references = links.flatMap(link => {
+    const relType = link.type.name
+    const lines: string[] = []
+    if (link.inwardIssue) {
+      lines.push(
+        `- ${relType}: [${link.inwardIssue.key}](${input.jiraBaseUrl}/browse/${link.inwardIssue.key}) - ${link.inwardIssue.fields.summary}`
+      )
+    }
+    if (link.outwardIssue) {
+      lines.push(
+        `- ${relType}: [${link.outwardIssue.key}](${input.jiraBaseUrl}/browse/${link.outwardIssue.key}) - ${link.outwardIssue.fields.summary}`
+      )
+    }
+    return lines
+  })
+
+  return ['## References', '', ...references, '']
+}
+
+function buildAttachmentLines(attachments: JiraResponse['fields']['attachment']): string[] {
+  const files = attachments ?? []
+  if (files.length === 0) return []
+  return ['## Attachments', '', ...files.map(file => `- [${file.filename}](${file.content})`), '']
+}
+
+function buildLocalSectionTemplateLines(): string[] {
+  return [
+    '## Acceptance Criteria',
+    '',
+    '_Add acceptance criteria here._',
+    '',
+    '## Non-Functional Requirements',
+    '',
+    '_Add any non-functional requirements here._',
+    '',
+    '## Task Breakdown',
+    '',
+    '_Break down the work required to complete this story._',
+    '',
+    '## Engineering Notes',
+    '',
+    '_Add implementation notes here._',
+    '',
+    '## Test Notes',
+    '',
+    '_Add testing notes and scenarios here._',
+    '',
+    '## Implementation Notes',
+    '',
+    '_Document decisions, gotchas, and important context._',
+    ''
+  ]
+}
+
+async function fetchJiraIssue(issueKey: string, auth: string): Promise<JiraResponse> {
+  const response = await fetch(`${jiraBaseUrl}/rest/api/3/issue/${issueKey}?expand=changelog`, {
+    method: 'GET',
+    headers: {
+      // eslint-disable-next-line @stylistic/quote-props
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ticket: ${response.status} ${response.statusText}`)
+  }
+
+  return (await response.json()) as JiraResponse
 }
 
 /**
@@ -289,194 +451,93 @@ function createSafeSummary(summary: string): string {
  * @throws Exits with code 1 if authentication fails, ticket not found, or file write fails
  */
 async function fetchAndWriteStory(): Promise<void> {
-  try {
-    // Fetch the Jira ticket
-    const auth = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64')
+  // Fetch the Jira ticket
+  const auth = Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64')
+  const issue = await fetchJiraIssue(ticketId, auth)
 
-    const response = await fetch(`${JIRA_BASE_URL}/rest/api/3/issue/${ticketId}?expand=changelog`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json'
-      }
-    })
-
-    if (!response.ok) {
-      console.error(`Failed to fetch ticket: ${response.status} ${response.statusText}`)
-      process.exit(1)
+  const {
+    key,
+    fields: {
+      summary,
+      description,
+      issuetype,
+      status,
+      customfield_10014: epic,
+      priority,
+      labels,
+      created,
+      updated,
+      project,
+      duedate,
+      issuelinks,
+      attachment
     }
+  } = issue
 
-    const issue: JiraResponse = await response.json()
-
-    const {
-      key,
-      fields: {
-        summary,
-        description,
-        issuetype,
-        status,
-        customfield_10014: epic,
-        priority,
-        labels,
-        created,
-        updated,
-        project,
-        duedate,
-        issuelinks,
-        attachment
-      }
-    } = issue
-
-    // Validate required fields
-    if (!issuetype?.name || !status?.name || !project?.name) {
-      console.error('❌ Missing required Jira fields')
-      if (!issuetype?.name) console.error('  - issuetype')
-      if (!status?.name) console.error('  - status')
-      if (!project?.name) console.error('  - project')
-      process.exit(1)
-    }
-
-    // Create safe summary for path
-    const safeSummary = createSafeSummary(summary)
-    const today = new Date().toISOString().split('T')[0]
-    const outputDir = `.backlog/${today}-${key}-${safeSummary}`
-    const outputPath = `${outputDir}/story.md`
-
-    // Ensure directory exists
-    mkdirSync(outputDir, { recursive: true })
-
-    // Build markdown content
-    const lines: string[] = []
-
-    // Title
-    lines.push(`# ${key} - ${summary}`)
-    lines.push('')
-
-    // Metadata header
-    lines.push('---')
-    lines.push(`Jira: [${key}](${JIRA_BASE_URL}/browse/${key})`)
-    lines.push(`Title: ${summary}`)
-    lines.push(`Type: ${issuetype?.name || 'N/A'}`)
-    lines.push(`Status (Jira): ${status?.name || 'N/A'}`)
-    lines.push(`Project: ${project?.name || 'N/A'}`)
-    lines.push(`Epic: ${epic?.name || 'N/A'}`)
-    lines.push(`Priority: ${priority?.name || 'N/A'}`)
-    lines.push(`Labels: ${labels?.join(', ') || 'N/A'}`)
-    lines.push(`Created: ${created}`)
-    lines.push(`Updated: ${updated}`)
-    if (duedate) {
-      lines.push(`Due Date: ${duedate}`)
-    }
-    lines.push(`Imported: ${new Date().toISOString()}`)
-    lines.push('---')
-    lines.push('')
-
-    // Description / User Story
-    if (description) {
-      const descriptionText = adfToText(description)
-      if (descriptionText.trim()) {
-        lines.push('## User Story')
-        lines.push('')
-        lines.push(descriptionText)
-        lines.push('')
-      }
-    }
-
-    // Issue Links / References
-    if (issuelinks && issuelinks.length > 0) {
-      const references: string[] = []
-      for (const link of issuelinks) {
-        const relType = link.type.name
-        if (link.inwardIssue) {
-          references.push(
-            `- ${relType}: [${link.inwardIssue.key}](${JIRA_BASE_URL}/browse/${link.inwardIssue.key}) - ${link.inwardIssue.fields.summary}`
-          )
-        }
-        if (link.outwardIssue) {
-          references.push(
-            `- ${relType}: [${link.outwardIssue.key}](${JIRA_BASE_URL}/browse/${link.outwardIssue.key}) - ${link.outwardIssue.fields.summary}`
-          )
-        }
-      }
-      if (references.length > 0) {
-        lines.push('## References')
-        lines.push('')
-        lines.push(...references)
-        lines.push('')
-      }
-    }
-
-    // Attachments
-    if (attachment && attachment.length > 0) {
-      lines.push('## Attachments')
-      lines.push('')
-      for (const file of attachment) {
-        lines.push(`- [${file.filename}](${file.content})`)
-      }
-      lines.push('')
-    }
-
-    // Acceptance Criteria section (local editing)
-    lines.push('## Acceptance Criteria')
-    lines.push('')
-    lines.push('_Add acceptance criteria here._')
-    lines.push('')
-
-    // Non-Functional Requirements section (local editing)
-    lines.push('## Non-Functional Requirements')
-    lines.push('')
-    lines.push('_Add any non-functional requirements here._')
-    lines.push('')
-
-    // Task Breakdown section (local only)
-    lines.push('## Task Breakdown')
-    lines.push('')
-    lines.push('_Break down the work required to complete this story._')
-    lines.push('')
-
-    // Engineering notes section (local only)
-    lines.push('## Engineering Notes')
-    lines.push('')
-    lines.push('_Add implementation notes here._')
-    lines.push('')
-
-    // Test Notes section (local only)
-    lines.push('## Test Notes')
-    lines.push('')
-    lines.push('_Add testing notes and scenarios here._')
-    lines.push('')
-
-    // Implementation Notes section (local only)
-    lines.push('## Implementation Notes')
-    lines.push('')
-    lines.push('_Document decisions, gotchas, and important context._')
-    lines.push('')
-
-    // Write to file
-    writeFileSync(outputPath, lines.join('\n'))
-
-    if (VERBOSE) {
-      console.log(`\n📋 Story details:`)
-      console.log(`  Key: ${key}`)
-      console.log(`  Type: ${issuetype?.name}`)
-      console.log(`  Status: ${status?.name}`)
-      console.log(`  Project: ${project?.name}`)
-      console.log(`  Path: ${outputPath}`)
-    }
-
-    console.log(`✓ Story written to ${outputPath}`)
-  } catch (error) {
-    console.error('Error fetching Jira story:', error)
-    process.exit(1)
+  // Validate required fields
+  if (!issuetype?.name || !status?.name || !project?.name) {
+    const missing: string[] = []
+    if (!issuetype?.name) missing.push('issuetype')
+    if (!status?.name) missing.push('status')
+    if (!project?.name) missing.push('project')
+    throw new Error(`Missing required Jira fields: ${missing.join(', ')}`)
   }
+
+  // Create safe summary for path
+  const safeSummary = createSafeSummary(summary)
+  const today = new Date().toISOString().split('T')[0]
+  const outputDir = `.backlog/${today}-${key}-${safeSummary}`
+  const outputPath = `${outputDir}/story.md`
+
+  // Ensure directory exists
+  mkdirSync(outputDir, { recursive: true })
+
+  const importedAt = new Date().toISOString()
+  const lines: string[] = [
+    ...buildHeaderLines({
+      key,
+      summary,
+      jiraBaseUrl,
+      issueType: issuetype.name,
+      status: status.name,
+      project: project.name,
+      epic: epic?.name || 'N/A',
+      priority: priority?.name || 'N/A',
+      labels: labels?.join(', ') || 'N/A',
+      created,
+      updated,
+      duedate,
+      importedAt
+    }),
+    ...buildUserStoryLines(description),
+    ...buildReferenceLines({ links: issuelinks, jiraBaseUrl }),
+    ...buildAttachmentLines(attachment),
+    ...buildLocalSectionTemplateLines()
+  ]
+
+  // Write to file
+  writeFileSync(outputPath, lines.join('\n'))
+
+  if (VERBOSE) {
+    logger.info('Story details:')
+    logger.raw(`  Key: ${key}`)
+    logger.raw(`  Type: ${issuetype.name}`)
+    logger.raw(`  Status: ${status.name}`)
+    logger.raw(`  Project: ${project.name}`)
+    logger.raw(`  Path: ${outputPath}`)
+  }
+
+  logger.success(`Story written to ${outputPath}`)
 }
 
 /**
  * Execute the main function and handle errors gracefully.
  * Logs fatal error message and exits with code 1 on failure.
  */
-fetchAndWriteStory().catch((error: unknown) => {
+try {
+  await fetchAndWriteStory()
+} catch (error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
-  console.error(`❌ Fatal error: ${message}`)
+  logger.error(`Fatal error: ${message}`)
   process.exit(1)
-})
+}

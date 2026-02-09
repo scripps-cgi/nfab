@@ -7,7 +7,7 @@ Follow the agent definition in:
 
 ## Inputs
 
-- A ticket ID referring to an existing `story.md` file in `.backlog`
+- A ticket ID referring to an existing `story.md` file in `.backlog` (mandatory)
 
 ## Files to Read
 
@@ -36,8 +36,15 @@ Create a test-scenarios.md file in the same folder as the story file. Populate t
 Include:
 
 - Unit test cases (logic-level)
-- Integration or E2E test cases
-- Gherkin scenarios for user-facing flows
+- Integration or E2E test cases (logic + UI flows)
+- Gherkin scenarios for user-facing flows, formatted as follows:
+
+```gherkin
+Feature: [Feature Name]
+  As a [user role],
+  I want to [goal],
+  So that [reason].
+```
 
 Each test must reference AC IDs.
 

@@ -9,7 +9,7 @@ You are to create a detailed task breakdown for implementing a Jira story. The b
 
 ## Inputs
 
-- A ticket ID referring to an existing `story.md` file in `.backlog`
+- A ticket ID referring to an existing `story.md` file in `.backlog` (mandatory)
 
 ## Files to Read
 
@@ -20,9 +20,9 @@ You are to create a detailed task breakdown for implementing a Jira story. The b
 - `.github/backlog/skills/*`
 - `.github/skills/*`
 
-If the readiness.md file does not exist, stop and write a readiness report before proceeding with the task breakdown, using the readiness prompt `.github/prompts/validate-story.prompt.md`.
-If the test-strategy.md file does not exist, stop and write a test strategy before proceeding with the task breakdown, using the test strategy prompt `.github/prompts/plan-test-strategy.prompt.md`.
-If the test-scenarios.md file does not exist, stop and write test scenarios before proceeding with the task breakdown, using the test scenarios prompt `.github/prompts/plan-test-scenarios.prompt.md`.
+If the readiness.md file does not exist, stop and write a readiness report before proceeding with the task breakdown, using the readiness prompt `.github/prompts/story.validate.prompt.md`.
+If the test-strategy.md file does not exist, stop and write a test strategy before proceeding with the task breakdown, using the test strategy prompt `.github/prompts/story.test-strategy.prompt.md`.
+If the test-scenarios.md file does not exist, stop and write test scenarios before proceeding with the task breakdown, using the test scenarios prompt `.github/prompts/story.test-scenarios.prompt.md`.
 
 ## Task
 

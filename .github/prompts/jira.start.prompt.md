@@ -2,11 +2,11 @@
 
 ## Inputs
 
-- Jira ticket ID (e.g., `SCRUM-1`, `NFAB-42`)
+- Jira ticket ID (e.g., `SCRUM-1`, `NFAB-42`) (mandatory)
 
 ## Files to Read
 
-- `.github/agent-instructions.md`
+- `.github/copilot-instructions.md`
 - `.github/backlog/skills/jira-mapping.md`
 
 ## Task
@@ -52,7 +52,6 @@ The script will:
    - Empty sections for local editing:
      - Acceptance Criteria
      - Non-Functional Requirements
-     - Task Breakdown
      - Engineering Notes
      - Test Notes
      - Implementation Notes

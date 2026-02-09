@@ -3,6 +3,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { exit } from 'node:process'
+import { logger } from './lib/logger.ts'
 
 /**
  * Prosemirror node types
@@ -44,7 +45,7 @@ function prosemirrorToMarkdown(doc: ProsemirrorDoc): string {
     return ''
   }
 
-  return doc.content.map((node) => nodeToMarkdown(node)).join('\n')
+  return doc.content.map(node => nodeToMarkdown(node)).join('\n')
 }
 
 /**
@@ -62,7 +63,7 @@ function nodeToMarkdown(node: ContentNode): string {
     }
 
     case 'bulletList':
-      return (node.content || []).map((item) => listItemToMarkdown(item as ContentNode, '- ', 0)).join('')
+      return (node.content || []).map(item => listItemToMarkdown(item as ContentNode, '- ', 0)).join('')
 
     case 'orderedList': {
       const order = (node.attrs?.order as number) || 1
@@ -78,10 +79,10 @@ function nodeToMarkdown(node: ContentNode): string {
     }
 
     case 'blockquote': {
-      const quoted = (node.content || []).map((n) => nodeToMarkdown(n as ContentNode)).join('\n')
+      const quoted = (node.content || []).map(n => nodeToMarkdown(n as ContentNode)).join('\n')
       return quoted
         .split('\n')
-        .map((line) => `> ${line}`)
+        .map(line => `> ${line}`)
         .join('\n')
     }
 
@@ -89,7 +90,7 @@ function nodeToMarkdown(node: ContentNode): string {
       return '---'
 
     default:
-      return (node.content || []).map((n) => nodeToMarkdown(n as ContentNode)).join('\n')
+      return (node.content || []).map(n => nodeToMarkdown(n as ContentNode)).join('\n')
   }
 }
 
@@ -137,7 +138,7 @@ function contentToMarkdown(content: ContentNode[]): string {
   if (!content) return ''
 
   return content
-    .map((node) => {
+    .map(node => {
       if (node.type === 'text') {
         const textNode = node as TextNode
         let text = textNode.text || ''
@@ -181,7 +182,7 @@ function contentToPlainText(content: ContentNode[]): string {
   if (!content) return ''
 
   return content
-    .map((node) => {
+    .map(node => {
       if (node.type === 'text') {
         return (node as TextNode).text || ''
       }
@@ -193,119 +194,120 @@ function contentToPlainText(content: ContentNode[]): string {
 /**
  * Main conversion function
  */
+function extractHeadlineLine(content: string): string {
+  const headlineMatch = content.match(/^#+\s+(.+?)$/m)
+  return headlineMatch ? headlineMatch[0] : ''
+}
+
+function extractMetadataHeader(content: string): Record<string, string> {
+  const metadata: Record<string, string> = {}
+  const metadataMatch = content.match(/^---\n([\s\S]*?)\n---\n/m)
+  if (!metadataMatch) return metadata
+
+  const metadataLines = metadataMatch[1].split('\n')
+  for (const line of metadataLines) {
+    const colonIndex = line.indexOf(': ')
+    if (colonIndex <= 0) continue
+    const key = line.substring(0, colonIndex)
+    const value = line.substring(colonIndex + 2)
+    metadata[key] = value
+  }
+
+  return metadata
+}
+
+function extractJsonPayload(content: string): string {
+  const codeBlockMatch = content.match(/```(?:mdc|json)?\s*\n([\s\S]*?)\n```/)
+  if (codeBlockMatch) return codeBlockMatch[1].trim()
+
+  const jsonLineMatch = content.match(/\n(\{[\s\S]*\})\s*$/m)
+  return jsonLineMatch ? jsonLineMatch[1].trim() : content
+}
+
+function stripHeadlineAndMetadata(content: string): string {
+  return content
+    .replace(/^#+\s+.+\n+/, '')
+    .replace(/^---\n[\s\S]*?\n---\n/, '')
+    .trim()
+}
+
+function prosemirrorJsonToMarkdown(jsonStr: string): string {
+  if (!jsonStr.startsWith('{')) {
+    throw new Error('No JSON payload found')
+  }
+
+  const doc: ProsemirrorDoc = JSON.parse(jsonStr)
+  return prosemirrorToMarkdown(doc)
+}
+
+function buildOutputMarkdown(input: { headline: string; metadata: Record<string, string>; markdown: string }): string {
+  const lines: string[] = []
+
+  if (input.headline) {
+    lines.push(input.headline, '')
+  }
+
+  if (Object.keys(input.metadata).length > 0) {
+    lines.push(
+      '---',
+      `Jira: ${input.metadata['Jira'] || ''}`,
+      `Title: ${input.metadata['Title'] || ''}`,
+      `Type: ${input.metadata['Type'] || ''}`,
+      `Status (Jira): ${input.metadata['Status (Jira)'] || ''}`,
+      `Epic: ${input.metadata['Epic'] || ''}`,
+      `Priority: ${input.metadata['Priority'] || ''}`,
+      `Labels: ${input.metadata['Labels'] || ''}`,
+      `Created: ${input.metadata['Created'] || ''}`,
+      `Imported: ${input.metadata['Imported'] || ''}`,
+      '---',
+      ''
+    )
+  }
+
+  const body = input.markdown.trim()
+  if (body) {
+    lines.push('## User Story', '', input.markdown.endsWith('\n') ? input.markdown.trimEnd() : input.markdown)
+  }
+
+  return lines.join('\n') + '\n'
+}
+
+async function convertFileOrThrow(inputPath: string, outputPath?: string): Promise<string> {
+  const content = await readFile(inputPath, 'utf8')
+  const headline = extractHeadlineLine(content)
+  const metadata = extractMetadataHeader(content)
+
+  const jsonStr = extractJsonPayload(content)
+  let markdown = ''
+
+  try {
+    markdown = prosemirrorJsonToMarkdown(jsonStr)
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : String(parseError)
+    logger.warn(`Failed to parse Prosemirror JSON: ${message}`)
+    logger.warn('Using raw content as fallback')
+    markdown = stripHeadlineAndMetadata(content)
+  }
+
+  const output = buildOutputMarkdown({ headline, metadata, markdown })
+  const finalOutputPath = outputPath || inputPath
+  await writeFile(finalOutputPath, output, 'utf8')
+
+  if (outputPath) {
+    logger.success(`Converted → ${finalOutputPath}`)
+  } else {
+    logger.success(`Converted: ${finalOutputPath}`)
+  }
+
+  return output
+}
+
 async function convertFile(inputPath: string, outputPath?: string): Promise<string> {
   try {
-    // Read the input file
-    const content = await readFile(inputPath, 'utf8')
-
-    // Extract headline
-    const headlineMatch = content.match(/^#+\s+(.+?)$/m)
-    const headline = headlineMatch ? headlineMatch[0] : ''
-
-    // Extract metadata header (between --- markers)
-    const metadata: Record<string, string> = {}
-    const metadataMatch = content.match(/^---\n([\s\S]*?)\n---\n/m)
-    if (metadataMatch) {
-      const metadataLines = metadataMatch[1].split('\n')
-      for (const line of metadataLines) {
-        // Find first ': ' occurrence to split key and value
-        const colonIndex = line.indexOf(': ')
-        if (colonIndex > 0) {
-          const key = line.substring(0, colonIndex)
-          const value = line.substring(colonIndex + 2)
-          metadata[key] = value
-        }
-      }
-    }
-
-    // Parse JSON - handle multiple formats:
-    // 1. JSON inside code blocks: ```...JSON...```
-    // 2. JSON directly in file
-    let jsonStr = content
-
-    // Try to extract from code block first
-    const codeBlockMatch = content.match(/```(?:mdc|json)?\s*\n([\s\S]*?)\n```/)
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1].trim()
-    } else {
-      // Try to extract JSON from line starting with {
-      const jsonLineMatch = content.match(/\n(\{[\s\S]*\})\s*$/m)
-      if (jsonLineMatch) {
-        jsonStr = jsonLineMatch[1].trim()
-      }
-    }
-
-    let doc: ProsemirrorDoc | null = null
-    let markdown = ''
-
-    // Only parse Prosemirror if we found valid JSON
-    if (jsonStr.startsWith('{')) {
-      try {
-        doc = JSON.parse(jsonStr)
-        if (doc) {
-          markdown = prosemirrorToMarkdown(doc)
-        }
-      } catch (parseError) {
-        // If JSON is not valid, treat content after metadata as the body
-        const message = parseError instanceof Error ? parseError.message : String(parseError)
-        console.warn(`⚠ Failed to parse Prosemirror JSON: ${message}`)
-        console.warn('⚠ Using raw content as fallback')
-        markdown = content
-          .replace(/^#+\s+.+\n+/, '') // Remove headline
-          .replace(/^---\n[\s\S]*?\n---\n/, '') // Remove metadata
-          .trim()
-      }
-    } else {
-      // No JSON found, use content as-is
-      markdown = content
-        .replace(/^#+\s+.+\n+/, '') // Remove headline
-        .replace(/^---\n[\s\S]*?\n---\n/, '') // Remove metadata
-        .trim()
-    }
-
-    // Build the final markdown with proper structure
-    let output = ''
-
-    // Add headline
-    if (headline) {
-      output += `${headline}\n\n`
-    }
-
-    // Add metadata header
-    if (Object.keys(metadata).length > 0) {
-      output += '---\n'
-      // Jira field is already formatted as a markdown link by the GitHub action
-      output += `Jira: ${metadata['Jira'] || ''}\n`
-      output += `Title: ${metadata['Title'] || ''}\n`
-      output += `Type: ${metadata['Type'] || ''}\n`
-      output += `Status (Jira): ${metadata['Status (Jira)'] || ''}\n`
-      output += `Epic: ${metadata['Epic'] || ''}\n`
-      output += `Priority: ${metadata['Priority'] || ''}\n`
-      output += `Labels: ${metadata['Labels'] || ''}\n`
-      output += `Created: ${metadata['Created'] || ''}\n`
-      output += `Imported: ${metadata['Imported'] || ''}\n`
-      output += '---\n\n'
-    }
-
-    // Add body content (Jira description maps to ## User Story section)
-    if (markdown && markdown.trim() !== '') {
-      output += '## User Story\n\n'
-      output += markdown
-      if (!markdown.endsWith('\n')) {
-        output += '\n'
-      }
-    }
-
-    // Write output (default to input path if not specified)
-    const finalOutputPath = outputPath || inputPath
-    await writeFile(finalOutputPath, output, 'utf8')
-    const action = outputPath ? '→' : '✓ Converted:'
-    console.log(`${action} ${finalOutputPath}`)
-
-    return output
+    return await convertFileOrThrow(inputPath, outputPath)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error(`✗ Error converting file:`, message)
+    logger.error(`Error converting file: ${message}`)
     exit(1)
   }
 }
@@ -317,14 +319,10 @@ if (isMainModule) {
   const args = process.argv.slice(2)
 
   if (args.length < 1) {
-    console.error('Usage: tsx jira-to-markdown.ts <file> [output-file]')
-    console.error('')
-    console.error('Examples:')
-    console.error('  # Convert in-place (overwrites input):')
-    console.error('  tsx scripts/jira-to-markdown.ts input.md')
-    console.error('')
-    console.error('  # Convert to separate file:')
-    console.error('  tsx scripts/jira-to-markdown.ts input.md output.md')
+    logger.error('Usage: tsx jira-to-markdown.ts <file> [output-file]')
+    logger.info('Examples:')
+    logger.info('tsx scripts/jira-to-markdown.ts input.md', { indent: 2 })
+    logger.info('tsx scripts/jira-to-markdown.ts input.md output.md', { indent: 2 })
     exit(1)
   }
 
