@@ -49,37 +49,43 @@ Agents must confirm which skills apply before proceeding.
 
 example:
 
+Start a new story, this will create a new folder in `.backlog/` with the story details and checkout a feature branch:
+
+```
+/jira.start SCRUM-1
+```
+
 Validate a story:
 
 ```
-/validate-story SCRUM-1
+/story.validate SCRUM-1
 ```
 
 Plan a test strategy:
 
 ```
-/plan-test-strategy  SCRUM-1
+/story.test-strategy  SCRUM-1
 
 ```
 
 Plan a task breakdown:
 
 ```
-/plan-task-breakdown SCRUM-1
+/story.task-breakdown SCRUM-1
 
 ```
 
 Generate test cases:
 
 ```
-/generate-test-cases SCRUM-1
+/story.test-cases SCRUM-1
 
 ```
 
 Post the dev approach to a comment on the story in Jira
 
 ```
-/maintain-jira-plan SCRUM-1
+/jira.submit-plan SCRUM-1
 
 ```
 
@@ -88,13 +94,13 @@ Post the dev approach to a comment on the story in Jira
 Generate code scaffold:
 
 ```
-/generate-code-scaffold SCRUM-1
+/story.generate-code-scaffold SCRUM-1
 
 ```
 
 Implement a single acceptance criterion:
 
 ```
-/implement-single-ac SCRUM-1 AC-1
+/story.implement-single-ac SCRUM-1 AC-1
 
 ```

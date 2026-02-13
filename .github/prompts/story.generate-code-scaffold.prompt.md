@@ -2,7 +2,7 @@
 
 ## Inputs
 
-- One imported Jira `story.md` file from `.backlog/` or a ticket ID referring to and existing story.md file in `.backlog`
+- A ticket ID referring to an existing `story.md` file in `.backlog` (mandatory)
 
 ## Files to Read
 

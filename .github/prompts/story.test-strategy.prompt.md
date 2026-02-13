@@ -16,7 +16,7 @@ This prompt enforces the **Test Strategy Planning** skill.
 
 ## Inputs
 
-- A ticket ID referring to an existing `story.md` file in `.backlog`
+- A ticket ID referring to an existing `story.md` file in `.backlog` (mandatory)
 
 ---
 
@@ -24,7 +24,7 @@ This prompt enforces the **Test Strategy Planning** skill.
 
 - The selected story file
 - `.github/backlog/skills/*`
-- `.github/skills/test-strategy.md`
+- `.github/skills/testing.md`
 - `.github/skills/*` (as needed for context)
 
 ---
@@ -75,6 +75,16 @@ For each acceptance criterion:
 - AC ID
 - Test level(s): Unit / Integration / E2E / Performance / Security
 - Rationale for the chosen level(s)
+
+### Test matrix
+
+For each AC, indicate which test types will be implemented in a matrix format:
+
+| AC ID | Notes             | Unit | Integration | E2E | Performance | Security |
+| ----- | ----------------- | ---- | ----------- | --- | ----------- | -------- |
+| AC-1  | Add a name field  | ✅   | ❌          | ✅  | ❌          | ❌       |
+| AC-2  | format validation | ✅   | ✅          | ❌  | ✅          | ❌       |
+| AC-3  | confirm value     | ❌   | ❌          | ❌  | ❌          | ✅       |
 
 ### Out of Scope
 

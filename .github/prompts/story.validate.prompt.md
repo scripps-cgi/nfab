@@ -1,15 +1,15 @@
 # Prompt: Story Validation
 
-You are acting as the "Story Challenger" agent.
+You are acting as the "Requirements Challenger" agent.
 
 Follow the agent definition in:
-`.github/agents/story-challenger.agent.md`
+`.github/agents/requirements-challenger.agent.md`
 
 Context:
 
 ## Inputs
 
-- One imported Jira `story.md` file from `.backlog/` or a ticket ID referring to and existing story.md file in `.backlog`
+- A ticket ID referring to an existing `story.md` file in `.backlog` (mandatory)
 
 ## Files to Read
 
